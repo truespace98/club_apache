@@ -39,7 +39,7 @@ st.markdown(
     """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@700;800&display=swap');
-.block-container{padding-top:1.2rem;max-width:1200px}
+.block-container{padding-top:4.5rem;max-width:1200px}
 .apache-bar{display:flex;align-items:center;gap:12px;background:#14213a;color:#f3f5f8;
   border-radius:14px;padding:14px 18px;margin-bottom:14px}
 .apache-bar h1{font-family:'Saira Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:30px;
@@ -112,8 +112,8 @@ def api(fn: str, *args, ses: dict | None = None):
             try:
                 res = r.json()
             except ValueError:
-                raise ApiError("La URL del Apps Script no respondió como se esperaba. Revisa que sea el link /exec "
-                               "y que la implementación tenga acceso para 'Cualquiera'.")
+                raise ApiError("Google respondió con un error en vez de datos (función: " + fn + "). "
+                               "Mensaje de Google: " + texto_de_error(r.text))
             if not res.get("ok"):
                 raise ApiError(str(res.get("error") or "Error desconocido"))
             return res.get("data")
@@ -121,6 +121,18 @@ def api(fn: str, *args, ses: dict | None = None):
             last = e
             time.sleep(1.2)
     raise ApiError(f"No se pudo conectar con Google. Inténtalo de nuevo. ({last})")
+
+
+def texto_de_error(html: str) -> str:
+    """Saca el texto legible de una página de error de Google."""
+    import html as _h
+    import re
+    t = re.search(r"<title>(.*?)</title>", html or "", re.S | re.I)
+    cuerpo = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html or "", flags=re.S | re.I)
+    cuerpo = re.sub(r"<[^>]+>", " ", cuerpo)
+    cuerpo = _h.unescape(" ".join(cuerpo.split()))
+    titulo = _h.unescape(t.group(1).strip()) if t else ""
+    return ((titulo + " — ") if titulo and titulo not in cuerpo else "") + (cuerpo[:400] or "(respuesta vacía)")
 
 
 def es_error_de_sesion(msg: str) -> bool:
